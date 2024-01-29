@@ -1,0 +1,81 @@
+service: nestjs-serverless-dynamo
+plugins:
+  - serverless-plugin-optimize
+  - serverless-dynamodb
+
+functions:
+  app:
+    handler: dist/serverless.handler
+    events:
+      - http:
+          method: ANY
+          path: /
+      - http:
+          method: ANY
+          path: '{proxy+}'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ap-northeast-2
+  apiGateway:
+    shouldStartNameWithService: true
+
+  environment:
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+    NODE_OPTIONS: --enable-source-maps --stack-trace-limit=1000
+    DYNAMODB_ENDPOINT: ${self:custom.endpoints.dynamodbURL}
+
+  iam:
+    role:
+      statements:
+        - Effect: 'Allow'
+          Action:
+            - 'dynamodb:DescribeTable'
+            - 'dynamodb:Query'
+            - 'dynamodb:Scan'
+            - 'dynamodb:GetItem'
+            - 'dynamodb:PutItem'
+            - 'dynamodb:UpdateItem'
+            - 'dynamodb:DeleteItem'
+            # DynamoDB의 모든 테이블을 불러옵니다.
+          Resource: arn:aws:dynamodb:ap-northeast-2:*:table/*
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    exclude: aws-sdk
+    target: node14
+    define: 'require.resolve: undefined'
+    platform: node
+    concurrency: 10
+
+  dynamodb:
+    start:
+      port: 6000
+      inMemory: true
+      migrate: true
+    stages: dev
+  endpoints:
+    dynamodbURL: 'http://localhost:6000'
+# 테이블을 생성하려면 주석을 해제하세요.
+# 로컬환경에서는 데이터베이스가 초기화되므로 사용해야합니다.
+# resources:
+#   Resources:
+#     TestTable:
+#       Type: AWS::DynamoDB::Table
+#       Properties:
+#         TableName: Test
+#         AttributeDefinitions:
+#           - AttributeName: id
+#             AttributeType: S
+
+#         KeySchema:
+#           - AttributeName: id
+#             KeyType: HASH
+
+#         ProvisionedThroughput:
+#           ReadCapacityUnits: 1
+#           WriteCapacityUnits: 1
